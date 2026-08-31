@@ -1,6 +1,51 @@
 (function(){
   "use strict";
 
+  // ---------------- SOUND (procedural, no audio files) ----------------
+  const SFX = (function(){
+    let ctx = null;
+    function ensureCtx(){
+      if(!ctx){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(!AC) return null;
+        ctx = new AC();
+      }
+      if(ctx.state === "suspended") ctx.resume();
+      return ctx;
+    }
+    function tone(freq, opts){
+      const c = ensureCtx();
+      if(!c) return;
+      const { duration=0.12, type="sine", volume=0.2, delay=0, glideTo=null } = opts || {};
+      const t0 = c.currentTime + delay;
+      const osc = c.createOscillator();
+      const gain = c.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t0);
+      if(glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, t0+duration);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.linearRampToValueAtTime(volume, t0+0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0+duration);
+      osc.connect(gain).connect(c.destination);
+      osc.start(t0);
+      osc.stop(t0+duration+0.02);
+    }
+    return {
+      grab(){ tone(500, {duration:0.05, type:"triangle", volume:0.10}); },
+      place(){ tone(360, {duration:0.09, type:"triangle", volume:0.18}); },
+      invalid(){ tone(120, {duration:0.14, type:"square", volume:0.12}); },
+      clear(lineCount){
+        const notes = [523.25, 659.25, 783.99, 987.77, 1174.66]; // C5 E5 G5 B5 D6
+        const n = Math.min(lineCount, notes.length);
+        for(let i=0;i<n;i++){
+          tone(notes[i], {duration:0.22, type:"sine", volume:0.22, delay:i*0.045});
+        }
+      },
+      gameOver(){ tone(392, {duration:0.5, type:"sawtooth", volume:0.16, glideTo:130}); },
+      start(){ tone(660, {duration:0.12, type:"triangle", volume:0.16, glideTo:990}); }
+    };
+  })();
+
   // ---------------- CONFIG ----------------
   const GRID = 8;
   const STORAGE_KEY = "dealblocks_best_v1";
@@ -109,6 +154,11 @@
   }
 
   function updateScoreUI(){
+    if(score > Number(scoreValEl.textContent)){
+      scoreValEl.classList.remove("bump");
+      void scoreValEl.offsetWidth;
+      scoreValEl.classList.add("bump");
+    }
     scoreValEl.textContent = score;
     streakValEl.textContent = streak;
     if(score > best){
@@ -126,7 +176,7 @@
   function fillTray(){
     for(let i=0;i<3;i++){
       if(!tray[i]){
-        tray[i] = { shape: randomShape(), id: Math.random().toString(36).slice(2) };
+        tray[i] = { shape: randomShape(), id: Math.random().toString(36).slice(2), isNew: true };
       }
     }
     renderTray();
@@ -137,9 +187,10 @@
     trayEl.innerHTML = "";
     tray.forEach((piece, idx) => {
       const slot = document.createElement("div");
-      slot.className = "piece-slot" + (piece ? "" : " empty");
+      slot.className = "piece-slot" + (piece ? "" : " empty") + (piece && piece.isNew ? " pop-in" : "");
       slot.dataset.idx = idx;
       if(piece){
+        piece.isNew = false;
         const rows = piece.shape.length;
         const cols = piece.shape[0].length;
         const grid = document.createElement("div");
@@ -239,8 +290,12 @@
         comboTagEl.textContent = lineCount+"x COMBO";
         comboTagEl.classList.add("show");
         setTimeout(()=>comboTagEl.classList.remove("show"), 900);
+        boardEl.classList.remove("combo-flash");
+        void boardEl.offsetWidth;
+        boardEl.classList.add("combo-flash");
       }
       showFloatingScore("+"+bonus, originX, originY, lineCount >= 2);
+      SFX.clear(lineCount);
     } else {
       streak = 0;
     }
@@ -273,6 +328,7 @@
     gameOver = true;
     finalScoreEl.textContent = score;
     finalBestEl.textContent = best;
+    SFX.gameOver();
     setTimeout(()=>gameOverOverlay.classList.add("show"), 250);
   }
 
@@ -282,6 +338,8 @@
     e.preventDefault();
     const piece = tray[trayIdx];
     if(!piece) return;
+
+    SFX.grab();
 
     const shape = piece.shape;
     const rows = shape.length, cols = shape[0].length;
@@ -409,6 +467,7 @@
 
       placePiece(shape, r, c);
       score += cellsPlaced;
+      SFX.place();
 
       // compute origin for popup (center of placed piece, in page coords)
       const cellPx = getCellSize();
@@ -419,6 +478,16 @@
 
       renderBoard();
       updateScoreUI();
+
+      for(let sr=0; sr<shape.length; sr++){
+        for(let sc=0; sc<shape[0].length; sc++){
+          if(!shape[sr][sc]) continue;
+          const cellEl = boardCellEls[r+sr][c+sc];
+          cellEl.classList.remove("placed-pop");
+          void cellEl.offsetWidth;
+          cellEl.classList.add("placed-pop");
+        }
+      }
 
       tray[dragging.trayIdx] = null;
       renderTray();
@@ -431,6 +500,11 @@
       } else {
         checkGameOver();
       }
+    } else if(lastPreview){
+      SFX.invalid();
+      boardEl.classList.remove("shake");
+      void boardEl.offsetWidth;
+      boardEl.classList.add("shake");
     }
 
     dragging = null;
@@ -439,15 +513,20 @@
 
   // ---------------- CONTROLS ----------------
   document.getElementById("startBtn").addEventListener("click", () => {
+    SFX.start();
     startOverlay.classList.remove("show");
     startGame();
   });
   document.getElementById("playAgainBtn").addEventListener("click", () => {
+    SFX.start();
     gameOverOverlay.classList.remove("show");
     startGame();
   });
   document.getElementById("restartBtn").addEventListener("click", () => {
-    if(confirm("Restart the current game?")) startGame();
+    if(confirm("Restart the current game?")){
+      SFX.start();
+      startGame();
+    }
   });
 
   function startGame(){
