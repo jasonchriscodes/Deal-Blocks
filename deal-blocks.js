@@ -2,8 +2,10 @@
   "use strict";
 
   // ---------------- SOUND (procedural, no audio files) ----------------
+  const MUTE_KEY = "dealblocks_muted_v1";
   const SFX = (function(){
     let ctx = null;
+    let muted = localStorage.getItem(MUTE_KEY) === "1";
     function ensureCtx(){
       if(!ctx){
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -14,6 +16,7 @@
       return ctx;
     }
     function tone(freq, opts){
+      if(muted) return;
       const c = ensureCtx();
       if(!c) return;
       const { duration=0.12, type="sine", volume=0.2, delay=0, glideTo=null } = opts || {};
@@ -49,6 +52,12 @@
       start(){ tone(660, {duration:0.12, type:"triangle", volume:0.16, glideTo:990}); },
       gold(){
         [1046.5, 1318.5, 1568.0].forEach((f,i) => tone(f, {duration:0.16, type:"triangle", volume:0.2, delay:i*0.06}));
+      },
+      isMuted(){ return muted; },
+      toggleMute(){
+        muted = !muted;
+        localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+        return muted;
       }
     };
   })();
@@ -115,8 +124,22 @@
   const finalScoreEl = document.getElementById("finalScore");
   const finalBestEl = document.getElementById("finalBest");
   const boardWrap = document.querySelector(".board-wrap");
+  const muteBtn = document.getElementById("muteBtn");
 
   bestValEl.textContent = best;
+
+  // ---------------- MUTE ----------------
+  function renderMuteBtn(){
+    const muted = SFX.isMuted();
+    muteBtn.textContent = muted ? "🔇" : "🔊";
+    muteBtn.classList.toggle("muted", muted);
+    muteBtn.title = muted ? "Unmute sound" : "Mute sound";
+  }
+  muteBtn.addEventListener("click", () => {
+    SFX.toggleMute();
+    renderMuteBtn();
+  });
+  renderMuteBtn();
 
   // ---------------- INIT BOARD DOM ----------------
   function buildBoardDOM(){

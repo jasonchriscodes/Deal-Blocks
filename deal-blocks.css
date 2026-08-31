@@ -62,14 +62,20 @@ html,body{
 .brand-text small{
   display:block; font-weight:500; font-size:10.5px; color:var(--lav-dim); margin-top:1px;
 }
+.topbar-actions{
+  display:flex; gap:8px;
+}
 .icon-btn{
   width:36px; height:36px; border-radius:10px;
   background:var(--card); border:1px solid rgba(255,255,255,0.06);
   display:flex; align-items:center; justify-content:center;
   color:var(--lav-dim); cursor:pointer;
+  font-size:15px;
   transition:transform .12s ease;
 }
-.icon-btn:active{ transform:scale(0.9) rotate(-40deg); }
+.icon-btn:active{ transform:scale(0.9); }
+#restartBtn:active{ transform:scale(0.9) rotate(-40deg); }
+#muteBtn.muted{ opacity:0.5; }
 
 /* ---------- SCORE STRIP ---------- */
 .score-strip{
