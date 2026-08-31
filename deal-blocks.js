@@ -303,6 +303,26 @@
         slot.setAttribute("aria-label",
           `Voucher piece ${idx+1} of 3, ${countCells(piece.shape)} cells${piece.golden ? ", golden" : ""}`);
         slot.addEventListener("keydown", (e) => onPieceKeydown(e, idx));
+
+        const rotateBtn = document.createElement("div");
+        rotateBtn.className = "rotate-btn";
+        rotateBtn.title = "Rotate piece";
+        rotateBtn.textContent = "⟳";
+        rotateBtn.tabIndex = 0;
+        rotateBtn.setAttribute("role", "button");
+        rotateBtn.setAttribute("aria-label", "Rotate piece");
+        rotateBtn.addEventListener("pointerdown", (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          rotatePieceInTray(idx);
+        });
+        rotateBtn.addEventListener("keydown", (e) => {
+          if(e.key !== "Enter" && e.key !== " ") return;
+          e.stopPropagation();
+          e.preventDefault();
+          rotatePieceInTray(idx);
+        });
+        slot.appendChild(rotateBtn);
       }
       trayEl.appendChild(slot);
     });
@@ -330,8 +350,19 @@
     return false;
   }
 
+  // Pieces can be rotated before placing, so a piece is only truly stuck if
+  // none of its four orientations fit anywhere on the board.
+  function pieceHasAnyPlacement(shape){
+    let s = shape;
+    for(let i=0;i<4;i++){
+      if(anyPlacementExists(s)) return true;
+      s = rotateShape(s);
+    }
+    return false;
+  }
+
   function checkGameOver(){
-    const alive = tray.some(p => p && anyPlacementExists(p.shape));
+    const alive = tray.some(p => p && pieceHasAnyPlacement(p.shape));
     if(!alive && tray.some(p => p)){
       triggerGameOver();
     }
@@ -347,6 +378,31 @@
 
   function countCells(shape){
     return shape.flat().filter(Boolean).length;
+  }
+
+  // 90 degrees clockwise
+  function rotateShape(shape){
+    const rows = shape.length, cols = shape[0].length;
+    const rotated = [];
+    for(let c=0; c<cols; c++){
+      const row = [];
+      for(let r=rows-1; r>=0; r--) row.push(shape[r][c]);
+      rotated.push(row);
+    }
+    return rotated;
+  }
+
+  function rotatePieceInTray(idx){
+    if(gameOver || dragging) return;
+    const piece = tray[idx];
+    if(!piece) return;
+    piece.shape = rotateShape(piece.shape);
+    SFX.grab();
+    haptic(10);
+    renderTray();
+    saveGame();
+    const rotateBtnEl = trayEl.querySelector(`.piece-slot[data-idx="${idx}"] .rotate-btn`);
+    if(rotateBtnEl) rotateBtnEl.focus();
   }
 
   function findFullLines(){

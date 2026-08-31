@@ -8,8 +8,8 @@ Drag voucher-shaped pieces onto an 8×8 board. Fill a full row or column to clea
 
 ## How to play
 
-- **Mouse / touch** — drag a piece from the tray onto the board and drop it on a valid (highlighted) spot.
-- **Keyboard** — Tab to a piece, `Enter`/`Space` to pick it up, arrow keys to move it over the board, `Enter` to place, `Esc` to cancel.
+- **Mouse / touch** — drag a piece from the tray onto the board and drop it on a valid (highlighted) spot. Tap the ⟳ button on a piece to rotate it 90° before placing.
+- **Keyboard** — Tab to a piece, `Enter`/`Space` to pick it up, arrow keys to move it over the board, `Enter` to place, `Esc` to cancel. Tab to a piece's ⟳ button and press `Enter`/`Space` to rotate it.
 - Clear a row or column to score. Clear 2+ at once for a combo multiplier.
 - Rare **golden voucher** pieces are worth a bonus when the line they're part of clears.
 - The board, tray, and score persist across a refresh (`localStorage`) until the game ends.
