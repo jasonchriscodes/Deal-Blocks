@@ -34,6 +34,10 @@
       grab(){ tone(500, {duration:0.05, type:"triangle", volume:0.10}); },
       place(){ tone(360, {duration:0.09, type:"triangle", volume:0.18}); },
       invalid(){ tone(120, {duration:0.14, type:"square", volume:0.12}); },
+      lineClear(){
+        tone(784.0, {duration:0.10, type:"sine", volume:0.20});
+        tone(1046.5, {duration:0.24, type:"sine", volume:0.24, delay:0.07});
+      },
       clear(lineCount){
         const notes = [523.25, 659.25, 783.99, 987.77, 1174.66]; // C5 E5 G5 B5 D6
         const n = Math.min(lineCount, notes.length);
@@ -293,9 +297,14 @@
         boardEl.classList.remove("combo-flash");
         void boardEl.offsetWidth;
         boardEl.classList.add("combo-flash");
+        SFX.clear(lineCount);
+      } else {
+        boardEl.classList.remove("line-flash");
+        void boardEl.offsetWidth;
+        boardEl.classList.add("line-flash");
+        SFX.lineClear();
       }
       showFloatingScore("+"+bonus, originX, originY, lineCount >= 2);
-      SFX.clear(lineCount);
     } else {
       streak = 0;
     }
