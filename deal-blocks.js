@@ -65,6 +65,7 @@
   // ---------------- CONFIG ----------------
   const GRID = 8;
   const STORAGE_KEY = "dealblocks_best_v1";
+  const SAVE_KEY = "dealblocks_save_v1";
   const GOLDEN_CHANCE = 0.12;
   const GOLDEN_BONUS = 40; // per golden cell, on clear
 
@@ -105,7 +106,6 @@
   let tray = [null, null, null];
   let gameOver = false;
   let boardCellEls = [];
-  let cellSize = 0;
   let boardRect = null;
 
   // drag state
@@ -126,8 +126,20 @@
   const boardWrap = document.querySelector(".board-wrap");
   const muteBtn = document.getElementById("muteBtn");
   const themeBtn = document.getElementById("themeBtn");
+  const srStatusEl = document.getElementById("srStatus");
 
   bestValEl.textContent = best;
+
+  // ---------------- ACCESSIBILITY HELPERS ----------------
+  function announce(text){
+    srStatusEl.textContent = "";
+    void srStatusEl.offsetWidth;
+    srStatusEl.textContent = text;
+  }
+
+  function haptic(pattern){
+    if(navigator.vibrate) navigator.vibrate(pattern);
+  }
 
   // ---------------- MUTE ----------------
   function renderMuteBtn(){
@@ -246,6 +258,7 @@
     }
     renderTray();
     checkGameOver();
+    saveGame();
   }
 
   function renderTray(){
@@ -272,6 +285,13 @@
         });
         slot.appendChild(grid);
         slot.addEventListener("pointerdown", (e) => onPieceGrab(e, idx));
+
+        slot.tabIndex = 0;
+        slot.setAttribute("role", "button");
+        slot.setAttribute("aria-describedby", "trayHelp");
+        slot.setAttribute("aria-label",
+          `Voucher piece ${idx+1} of 3, ${countCells(piece.shape)} cells${piece.golden ? ", golden" : ""}`);
+        slot.addEventListener("keydown", (e) => onPieceKeydown(e, idx));
       }
       trayEl.appendChild(slot);
     });
@@ -367,19 +387,27 @@
         void boardEl.offsetWidth;
         boardEl.classList.add("combo-flash");
         SFX.clear(lineCount);
+        haptic([25,40,25,40,50]);
       } else {
         boardEl.classList.remove("line-flash");
         void boardEl.offsetWidth;
         boardEl.classList.add("line-flash");
         SFX.lineClear();
+        haptic([20,30,35]);
       }
       showFloatingScore("+"+bonus, originX, originY, lineCount >= 2 ? "combo" : undefined);
+      announce(lineCount >= 2
+        ? `${lineCount} line combo! Plus ${bonus} points.`
+        : `Line cleared! Plus ${bonus} points.`);
       if(goldenCleared > 0){
         SFX.gold();
+        haptic([15,25,15,25,15,25,60]);
         setTimeout(() => showFloatingScore("✨ Voucher redeemed!", originX, originY - 34, "gold"), 90);
+        setTimeout(() => announce(`Golden voucher redeemed! Bonus ${goldenBonus} points.`), 900);
       }
     } else {
       streak = 0;
+      announce("Piece placed.");
     }
 
     setTimeout(() => {
@@ -390,6 +418,7 @@
       });
       renderBoard();
       updateScoreUI();
+      saveGame();
     }, 320);
 
     updateScoreUI();
@@ -412,17 +441,21 @@
     finalScoreEl.textContent = score;
     finalBestEl.textContent = best;
     SFX.gameOver();
+    haptic([40,50,40,50,80]);
+    clearSave();
+    announce(`Game over. Final score ${score}.`);
     setTimeout(()=>gameOverOverlay.classList.add("show"), 250);
   }
 
   // ---------------- DRAG & DROP (pointer events, mouse+touch unified) ----------------
   function onPieceGrab(e, trayIdx){
-    if(gameOver) return;
+    if(gameOver || dragging) return;
     e.preventDefault();
     const piece = tray[trayIdx];
     if(!piece) return;
 
     SFX.grab();
+    haptic(15);
 
     const shape = piece.shape;
     const rows = shape.length, cols = shape[0].length;
@@ -544,47 +577,10 @@
     if(slotEl) slotEl.classList.remove("dragging-source");
 
     if(lastPreview && lastPreview.ok){
-      const { r, c } = lastPreview;
-      const shape = dragging.shape;
-      const cellsPlaced = countCells(shape);
-
-      placePiece(shape, r, c, dragging.golden ? 2 : 1);
-      score += cellsPlaced;
-      SFX.place();
-
-      // compute origin for popup (center of placed piece, in page coords)
-      const cellPx = getCellSize();
-      const midR = r + shape.length/2;
-      const midC = c + shape[0].length/2;
-      const originX = boardRect.left + 8 + midC*(cellPx+4);
-      const originY = boardRect.top + 8 + midR*(cellPx+4);
-
-      renderBoard();
-      updateScoreUI();
-
-      for(let sr=0; sr<shape.length; sr++){
-        for(let sc=0; sc<shape[0].length; sc++){
-          if(!shape[sr][sc]) continue;
-          const cellEl = boardCellEls[r+sr][c+sc];
-          cellEl.classList.remove("placed-pop");
-          void cellEl.offsetWidth;
-          cellEl.classList.add("placed-pop");
-        }
-      }
-
-      tray[dragging.trayIdx] = null;
-      renderTray();
-
-      const { rows, cols } = findFullLines();
-      clearLines(rows, cols, originX - boardWrap.getBoundingClientRect().left, originY - boardWrap.getBoundingClientRect().top);
-
-      if(tray.every(p => !p)){
-        fillTray();
-      } else {
-        checkGameOver();
-      }
+      performPlacement(dragging.shape, lastPreview.r, lastPreview.c, dragging.trayIdx, dragging.golden);
     } else if(lastPreview){
       SFX.invalid();
+      haptic(30);
       boardEl.classList.remove("shake");
       void boardEl.offsetWidth;
       boardEl.classList.add("shake");
@@ -592,6 +588,149 @@
 
     dragging = null;
     lastPreview = null;
+  }
+
+  // Shared by pointer drop and keyboard confirm: commits a valid placement.
+  function performPlacement(shape, r, c, trayIdx, golden, viaKeyboard){
+    const cellsPlaced = countCells(shape);
+
+    placePiece(shape, r, c, golden ? 2 : 1);
+    score += cellsPlaced;
+    SFX.place();
+    haptic(20);
+
+    // compute origin for popup (center of placed piece, in page coords)
+    const cellPx = getCellSize();
+    const midR = r + shape.length/2;
+    const midC = c + shape[0].length/2;
+    const originX = boardRect.left + 8 + midC*(cellPx+4);
+    const originY = boardRect.top + 8 + midR*(cellPx+4);
+
+    renderBoard();
+    updateScoreUI();
+
+    for(let sr=0; sr<shape.length; sr++){
+      for(let sc=0; sc<shape[0].length; sc++){
+        if(!shape[sr][sc]) continue;
+        const cellEl = boardCellEls[r+sr][c+sc];
+        cellEl.classList.remove("placed-pop");
+        void cellEl.offsetWidth;
+        cellEl.classList.add("placed-pop");
+      }
+    }
+
+    tray[trayIdx] = null;
+    renderTray();
+
+    const { rows, cols } = findFullLines();
+    clearLines(rows, cols, originX - boardWrap.getBoundingClientRect().left, originY - boardWrap.getBoundingClientRect().top);
+
+    if(tray.every(p => !p)){
+      fillTray();
+    } else {
+      checkGameOver();
+    }
+
+    if(viaKeyboard){
+      const nextSlot = trayEl.querySelector(".piece-slot:not(.empty)");
+      if(nextSlot) nextSlot.focus();
+    }
+  }
+
+  // ---------------- KEYBOARD DRAG (accessible alternative to pointer drag) ----------------
+  let kbCursor = null;
+
+  function onPieceKeydown(e, trayIdx){
+    if(e.key !== "Enter" && e.key !== " ") return;
+    // Already mid keyboard-drag (this same slot is still focused): let the event
+    // bubble to the document-level drag handler instead of treating it as a re-pickup.
+    if(gameOver || dragging) return;
+    e.preventDefault();
+    e.stopPropagation(); // don't let this same keydown re-trigger the document-level drag handler we're about to attach
+    const piece = tray[trayIdx];
+    if(!piece) return;
+
+    SFX.grab();
+    haptic(15);
+
+    const shape = piece.shape;
+    const rows = shape.length, cols = shape[0].length;
+    dragging = { trayIdx, shape, rows, cols, golden: piece.golden, keyboard: true };
+    kbCursor = {
+      r: Math.max(0, Math.min(GRID-rows, Math.floor((GRID-rows)/2))),
+      c: Math.max(0, Math.min(GRID-cols, Math.floor((GRID-cols)/2)))
+    };
+
+    boardRect = boardEl.getBoundingClientRect();
+
+    const slotEl = trayEl.querySelector(`[data-idx="${trayIdx}"]`);
+    if(slotEl) slotEl.classList.add("dragging-source");
+
+    applyKbPreview();
+    announce("Picked up piece. Use arrow keys to move, Enter to place, Escape to cancel.");
+    document.addEventListener("keydown", onKbDragKeydown);
+  }
+
+  function applyKbPreview(){
+    clearPreview();
+    const ok = canPlace(dragging.shape, kbCursor.r, kbCursor.c);
+    for(let sr=0; sr<dragging.rows; sr++){
+      for(let sc=0; sc<dragging.cols; sc++){
+        if(!dragging.shape[sr][sc]) continue;
+        const rr = kbCursor.r+sr, cc = kbCursor.c+sc;
+        if(rr>=0 && rr<GRID && cc>=0 && cc<GRID){
+          boardCellEls[rr][cc].classList.add(ok?"preview-ok":"preview-bad");
+        }
+      }
+    }
+  }
+
+  const KB_MOVES = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] };
+
+  function onKbDragKeydown(e){
+    if(!dragging || !dragging.keyboard) return;
+    if(KB_MOVES[e.key]){
+      e.preventDefault();
+      const [dr,dc] = KB_MOVES[e.key];
+      kbCursor.r = Math.max(0, Math.min(GRID-1, kbCursor.r+dr));
+      kbCursor.c = Math.max(0, Math.min(GRID-1, kbCursor.c+dc));
+      applyKbPreview();
+    } else if(e.key === "Enter" || e.key === " "){
+      e.preventDefault();
+      confirmKbPlacement();
+    } else if(e.key === "Escape"){
+      e.preventDefault();
+      announce("Cancelled.");
+      endKbDrag(true);
+    }
+  }
+
+  function confirmKbPlacement(){
+    const { r, c } = kbCursor;
+    if(!canPlace(dragging.shape, r, c)){
+      SFX.invalid();
+      haptic(30);
+      announce("Can't place piece there.");
+      boardEl.classList.remove("shake");
+      void boardEl.offsetWidth;
+      boardEl.classList.add("shake");
+      return;
+    }
+    const { shape, trayIdx, golden } = dragging;
+    endKbDrag(false);
+    performPlacement(shape, r, c, trayIdx, golden, true);
+  }
+
+  function endKbDrag(focusBack){
+    clearPreview();
+    document.removeEventListener("keydown", onKbDragKeydown);
+    const slotEl = trayEl.querySelector(`[data-idx="${dragging.trayIdx}"]`);
+    if(slotEl){
+      slotEl.classList.remove("dragging-source");
+      if(focusBack) slotEl.focus();
+    }
+    dragging = null;
+    kbCursor = null;
   }
 
   // ---------------- CONTROLS ----------------
@@ -616,6 +755,47 @@
     resetBoardState();
     tray = [null,null,null];
     fillTray();
+    announce("New game started.");
+  }
+
+  // ---------------- SAVE / RESTORE (resume after a refresh) ----------------
+  function saveGame(){
+    if(gameOver){ clearSave(); return; }
+    try{
+      localStorage.setItem(SAVE_KEY, JSON.stringify({
+        board, score, streak,
+        tray: tray.map(p => p ? { shape: p.shape, golden: !!p.golden } : null)
+      }));
+    } catch(e){}
+  }
+
+  function clearSave(){
+    try{ localStorage.removeItem(SAVE_KEY); } catch(e){}
+  }
+
+  function loadSave(){
+    try{
+      const raw = localStorage.getItem(SAVE_KEY);
+      if(!raw) return null;
+      const data = JSON.parse(raw);
+      if(!data || !Array.isArray(data.board) || data.board.length !== GRID || !Array.isArray(data.tray)) return null;
+      return data;
+    } catch(e){ return null; }
+  }
+
+  function restoreGame(data){
+    board = data.board;
+    score = data.score || 0;
+    streak = data.streak || 0;
+    gameOver = false;
+    buildBoardDOM();
+    renderBoard();
+    scoreValEl.textContent = score;
+    streakValEl.textContent = streak;
+    bestValEl.textContent = best;
+    tray = data.tray.map(p => p ? { shape: p.shape, golden: !!p.golden, id: Math.random().toString(36).slice(2), isNew: false } : null);
+    renderTray();
+    checkGameOver();
   }
 
   // prevent page scroll/bounce on mobile while dragging
@@ -625,7 +805,13 @@
 
   window.addEventListener("resize", () => { boardRect = boardEl.getBoundingClientRect(); });
 
-  // initial build (idle state behind start overlay)
-  buildBoardDOM();
+  // resume an in-progress game after a refresh, otherwise show the idle start screen
+  const savedGame = loadSave();
+  if(savedGame){
+    restoreGame(savedGame);
+    startOverlay.classList.remove("show");
+  } else {
+    buildBoardDOM();
+  }
 
 })();

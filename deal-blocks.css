@@ -72,6 +72,11 @@
   --shadow:0 8px 24px rgba(0,0,0,0.35);
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+.sr-only{
+  position:absolute; width:1px; height:1px;
+  padding:0; margin:-1px; overflow:hidden;
+  clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
 html,body{
   margin:0; padding:0; height:100%;
   background:
@@ -259,6 +264,10 @@ html,body{
   display:grid;
   grid-template-columns:repeat(3, 1fr);
   gap:8px;
+}
+.piece-slot:focus-visible{
+  outline:2px solid var(--mint);
+  outline-offset:2px;
 }
 .piece-slot{
   background:var(--card);
