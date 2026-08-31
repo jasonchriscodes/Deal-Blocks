@@ -2,7 +2,9 @@
 
 A block-puzzle game built for the Vouchermatic HTML5 Game Developer hiring challenge, by Jason Christian.
 
-Drag voucher-shaped pieces onto an 8×8 board. Fill a full row or column to clear it and score points — clear several lines in one move for a combo bonus. No build step, no dependencies: open `deal-blocks.html` in a browser and play.
+**Play it live:** https://jasonchriscodes.github.io/Deal-Blocks/
+
+Drag voucher-shaped pieces onto an 8×8 board. Fill a full row or column to clear it and score points — clear several lines in one move for a combo bonus. No build step, no dependencies: open `index.html` in a browser and play.
 
 ## How to play
 
@@ -22,6 +24,6 @@ Drag voucher-shaped pieces onto an 8×8 board. Fill a full row or column to clea
 
 ## Project structure
 
-- `deal-blocks.html` — markup
+- `index.html` — markup
 - `deal-blocks.css` — styles and theming
 - `deal-blocks.js` — game logic (vanilla JS, no framework or build tooling)
