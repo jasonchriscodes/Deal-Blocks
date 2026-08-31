@@ -46,13 +46,18 @@
         }
       },
       gameOver(){ tone(392, {duration:0.5, type:"sawtooth", volume:0.16, glideTo:130}); },
-      start(){ tone(660, {duration:0.12, type:"triangle", volume:0.16, glideTo:990}); }
+      start(){ tone(660, {duration:0.12, type:"triangle", volume:0.16, glideTo:990}); },
+      gold(){
+        [1046.5, 1318.5, 1568.0].forEach((f,i) => tone(f, {duration:0.16, type:"triangle", volume:0.2, delay:i*0.06}));
+      }
     };
   })();
 
   // ---------------- CONFIG ----------------
   const GRID = 8;
   const STORAGE_KEY = "dealblocks_best_v1";
+  const GOLDEN_CHANCE = 0.12;
+  const GOLDEN_BONUS = 40; // per golden cell, on clear
 
   // Piece shapes (voucher-themed set: mix of small, medium, line, and awkward shapes)
   const SHAPES = [
@@ -180,7 +185,7 @@
   function fillTray(){
     for(let i=0;i<3;i++){
       if(!tray[i]){
-        tray[i] = { shape: randomShape(), id: Math.random().toString(36).slice(2), isNew: true };
+        tray[i] = { shape: randomShape(), id: Math.random().toString(36).slice(2), isNew: true, golden: Math.random() < GOLDEN_CHANCE };
       }
     }
     renderTray();
@@ -205,7 +210,7 @@
         piece.shape.forEach(row => {
           row.forEach(v => {
             const pc = document.createElement("div");
-            pc.className = "piece-cell" + (v ? "" : " empty");
+            pc.className = "piece-cell" + (v ? "" : " empty") + (v && piece.golden ? " golden" : "");
             grid.appendChild(pc);
           });
         });
@@ -245,10 +250,10 @@
     }
   }
 
-  function placePiece(shape, baseR, baseC){
+  function placePiece(shape, baseR, baseC, value){
     for(let r=0;r<shape.length;r++){
       for(let c=0;c<shape[0].length;c++){
-        if(shape[r][c]) board[baseR+r][baseC+c] = 1;
+        if(shape[r][c]) board[baseR+r][baseC+c] = value;
       }
     }
   }
@@ -288,6 +293,14 @@
       const base = lineCount * GRID * 10;
       const comboMult = lineCount >= 2 ? (1 + (lineCount-1)*0.5) : 1;
       bonus = Math.round(base * comboMult);
+
+      let goldenCleared = 0;
+      cellsToAnimate.forEach(key => {
+        const [r,c] = key.split(",").map(Number);
+        if(board[r][c] === 2) goldenCleared++;
+      });
+      const goldenBonus = goldenCleared * GOLDEN_BONUS;
+      bonus += goldenBonus;
       score += bonus;
 
       if(lineCount >= 2){
@@ -304,7 +317,11 @@
         boardEl.classList.add("line-flash");
         SFX.lineClear();
       }
-      showFloatingScore("+"+bonus, originX, originY, lineCount >= 2);
+      showFloatingScore("+"+bonus, originX, originY, lineCount >= 2 ? "combo" : undefined);
+      if(goldenCleared > 0){
+        SFX.gold();
+        setTimeout(() => showFloatingScore("✨ Voucher redeemed!", originX, originY - 34, "gold"), 90);
+      }
     } else {
       streak = 0;
     }
@@ -322,13 +339,14 @@
     updateScoreUI();
   }
 
-  function showFloatingScore(text, x, y, big){
+  function showFloatingScore(text, x, y, variant){
     const pop = document.createElement("div");
     pop.className = "float-pop";
     pop.textContent = text;
     pop.style.left = x+"px";
     pop.style.top = y+"px";
-    if(big){ pop.style.fontSize = "30px"; pop.style.color = "var(--mint)"; }
+    if(variant === "combo"){ pop.style.fontSize = "30px"; pop.style.color = "var(--mint)"; }
+    if(variant === "gold"){ pop.style.fontSize = "16px"; }
     boardWrap.appendChild(pop);
     setTimeout(()=>pop.remove(), 820);
   }
@@ -354,7 +372,7 @@
     const rows = shape.length, cols = shape[0].length;
 
     dragging = {
-      trayIdx, shape, pointerId: e.pointerId,
+      trayIdx, shape, pointerId: e.pointerId, golden: piece.golden,
       rows, cols
     };
 
@@ -371,7 +389,7 @@
     shape.forEach(row => {
       row.forEach(v => {
         const gc = document.createElement("div");
-        gc.className = "g-cell" + (v?"":" empty");
+        gc.className = "g-cell" + (v?"":" empty") + (v && piece.golden ? " golden" : "");
         gc.style.width = cellPx+"px";
         gc.style.height = cellPx+"px";
         dragGhostEl.appendChild(gc);
@@ -394,7 +412,7 @@
   }
 
   function onPointerMove(e){
-    if(!dragging) return;
+    if(!dragging || e.pointerId !== dragging.pointerId) return;
     moveGhost(e.clientX, e.clientY);
     updatePreview(e.clientX, e.clientY);
   }
@@ -458,7 +476,7 @@
   }
 
   function onPointerUp(e){
-    if(!dragging) return;
+    if(!dragging || e.pointerId !== dragging.pointerId) return;
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
     window.removeEventListener("pointercancel", onPointerUp);
@@ -474,7 +492,7 @@
       const shape = dragging.shape;
       const cellsPlaced = countCells(shape);
 
-      placePiece(shape, r, c);
+      placePiece(shape, r, c, dragging.golden ? 2 : 1);
       score += cellsPlaced;
       SFX.place();
 
