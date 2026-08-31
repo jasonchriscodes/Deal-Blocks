@@ -813,7 +813,10 @@
   });
   const restartConfirmOverlay = document.getElementById("restartConfirmOverlay");
   document.getElementById("restartBtn").addEventListener("click", () => {
-    if(startOverlay.classList.contains("show") || gameOverOverlay.classList.contains("show")) return;
+    // gameOver flips true immediately on game-over, but its overlay animates in ~250ms
+    // later - check the flag too, not just the overlay's own CSS class, to avoid the two
+    // overlays showing at once if restart is confirmed inside that window.
+    if(startOverlay.classList.contains("show") || gameOverOverlay.classList.contains("show") || gameOver) return;
     restartConfirmOverlay.classList.add("show");
   });
   document.getElementById("restartCancelBtn").addEventListener("click", () => {
@@ -825,7 +828,28 @@
     startGame();
   });
 
+  // Tears down an in-progress pointer or keyboard drag: releases global
+  // listeners and clears drag state. Needed before a restart, since a drag
+  // can otherwise outlive the reset (e.g. tabbing away mid keyboard-drag to
+  // confirm a restart) and later apply itself to the fresh board/tray.
+  function cancelActiveDrag(){
+    if(!dragging) return;
+    if(dragging.keyboard){
+      document.removeEventListener("keydown", onKbDragKeydown);
+    } else {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+      dragGhostEl.style.display = "none";
+    }
+    clearPreview();
+    dragging = null;
+    kbCursor = null;
+    lastPreview = null;
+  }
+
   function startGame(){
+    cancelActiveDrag();
     resetBoardState();
     tray = [null,null,null];
     fillTray();
