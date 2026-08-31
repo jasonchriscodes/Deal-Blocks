@@ -10,8 +10,6 @@
   --lav:#EDE6F5;
   --lav-dim:#B7ACC9;
   --grid-cell:#2E2247;
-  --grid-cell-line:#3B2C5A;
-  --danger:#FF5A7A;
   --ink:#150F1F;
   --border-soft:rgba(255,255,255,0.06);
   --scrim:rgba(11,7,18,0.88);
@@ -30,8 +28,6 @@
     --lav:#241A38;
     --lav-dim:#6F6483;
     --grid-cell:#F5EFFC;
-    --grid-cell-line:#DCCFEE;
-    --danger:#E23A5C;
     --border-soft:rgba(36,20,56,0.08);
     --scrim:rgba(50,36,74,0.4);
     --shadow:0 8px 24px rgba(60,40,90,0.14);
@@ -49,8 +45,6 @@
   --lav:#241A38;
   --lav-dim:#6F6483;
   --grid-cell:#F5EFFC;
-  --grid-cell-line:#DCCFEE;
-  --danger:#E23A5C;
   --border-soft:rgba(36,20,56,0.08);
   --scrim:rgba(50,36,74,0.4);
   --shadow:0 8px 24px rgba(60,40,90,0.14);
@@ -65,8 +59,6 @@
   --lav:#EDE6F5;
   --lav-dim:#B7ACC9;
   --grid-cell:#2E2247;
-  --grid-cell-line:#3B2C5A;
-  --danger:#FF5A7A;
   --border-soft:rgba(255,255,255,0.06);
   --scrim:rgba(11,7,18,0.88);
   --shadow:0 8px 24px rgba(0,0,0,0.35);
@@ -427,6 +419,28 @@ html,body{
   box-shadow:0 6px 18px rgba(255,107,91,0.32);
 }
 .btn-primary:active{ transform:scale(0.98); }
+
+.confirm-actions{
+  display:flex;
+  gap:10px;
+}
+.confirm-actions .btn-primary,
+.confirm-actions .btn-secondary{
+  width:auto;
+  flex:1;
+}
+.btn-secondary{
+  background:var(--card);
+  color:var(--lav);
+  border:1px solid var(--border-soft);
+  border-radius:14px;
+  padding:14px;
+  font-family:inherit;
+  font-size:15px;
+  font-weight:700;
+  cursor:pointer;
+}
+.btn-secondary:active{ transform:scale(0.98); }
 
 /* ---------- START OVERLAY ---------- */
 .rules-list{

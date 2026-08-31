@@ -1,11 +1,22 @@
 (function(){
   "use strict";
 
+  // ---------------- STORAGE (guarded: localStorage can throw, e.g. private browsing) ----------------
+  function storageGet(key){
+    try{ return localStorage.getItem(key); } catch(e){ return null; }
+  }
+  function storageSet(key, value){
+    try{ localStorage.setItem(key, value); } catch(e){}
+  }
+  function storageRemove(key){
+    try{ localStorage.removeItem(key); } catch(e){}
+  }
+
   // ---------------- SOUND (procedural, no audio files) ----------------
   const MUTE_KEY = "dealblocks_muted_v1";
   const SFX = (function(){
     let ctx = null;
-    let muted = localStorage.getItem(MUTE_KEY) === "1";
+    let muted = storageGet(MUTE_KEY) === "1";
     function ensureCtx(){
       if(!ctx){
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -56,7 +67,7 @@
       isMuted(){ return muted; },
       toggleMute(){
         muted = !muted;
-        localStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+        storageSet(MUTE_KEY, muted ? "1" : "0");
         return muted;
       }
     };
@@ -101,7 +112,7 @@
   // ---------------- STATE ----------------
   let board = []; // GRID x GRID of 0/1
   let score = 0;
-  let best = parseInt(localStorage.getItem(STORAGE_KEY) || "0", 10) || 0;
+  let best = parseInt(storageGet(STORAGE_KEY) || "0", 10) || 0;
   let streak = 0;
   let tray = [null, null, null];
   let gameOver = false;
@@ -159,7 +170,7 @@
   const systemLight = window.matchMedia("(prefers-color-scheme: light)");
 
   function effectiveTheme(){
-    const stored = localStorage.getItem(THEME_KEY);
+    const stored = storageGet(THEME_KEY);
     if(stored === "light" || stored === "dark") return stored;
     return systemLight.matches ? "light" : "dark";
   }
@@ -169,7 +180,7 @@
     themeBtn.title = light ? "Switch to dark theme" : "Switch to light theme";
   }
   function applyStoredTheme(){
-    const stored = localStorage.getItem(THEME_KEY);
+    const stored = storageGet(THEME_KEY);
     if(stored === "light" || stored === "dark"){
       document.documentElement.dataset.theme = stored;
     } else {
@@ -178,11 +189,11 @@
     renderThemeBtn();
   }
   themeBtn.addEventListener("click", () => {
-    localStorage.setItem(THEME_KEY, effectiveTheme() === "light" ? "dark" : "light");
+    storageSet(THEME_KEY, effectiveTheme() === "light" ? "dark" : "light");
     applyStoredTheme();
   });
   systemLight.addEventListener("change", () => {
-    if(!localStorage.getItem(THEME_KEY)) renderThemeBtn();
+    if(!storageGet(THEME_KEY)) renderThemeBtn();
   });
   applyStoredTheme();
 
@@ -240,7 +251,7 @@
     streakValEl.textContent = streak;
     if(score > best){
       best = score;
-      localStorage.setItem(STORAGE_KEY, String(best));
+      storageSet(STORAGE_KEY, String(best));
     }
     bestValEl.textContent = best;
   }
@@ -744,11 +755,18 @@
     gameOverOverlay.classList.remove("show");
     startGame();
   });
+  const restartConfirmOverlay = document.getElementById("restartConfirmOverlay");
   document.getElementById("restartBtn").addEventListener("click", () => {
-    if(confirm("Restart the current game?")){
-      SFX.start();
-      startGame();
-    }
+    if(startOverlay.classList.contains("show") || gameOverOverlay.classList.contains("show")) return;
+    restartConfirmOverlay.classList.add("show");
+  });
+  document.getElementById("restartCancelBtn").addEventListener("click", () => {
+    restartConfirmOverlay.classList.remove("show");
+  });
+  document.getElementById("restartConfirmBtn").addEventListener("click", () => {
+    restartConfirmOverlay.classList.remove("show");
+    SFX.start();
+    startGame();
   });
 
   function startGame(){
@@ -761,22 +779,20 @@
   // ---------------- SAVE / RESTORE (resume after a refresh) ----------------
   function saveGame(){
     if(gameOver){ clearSave(); return; }
-    try{
-      localStorage.setItem(SAVE_KEY, JSON.stringify({
-        board, score, streak,
-        tray: tray.map(p => p ? { shape: p.shape, golden: !!p.golden } : null)
-      }));
-    } catch(e){}
+    storageSet(SAVE_KEY, JSON.stringify({
+      board, score, streak,
+      tray: tray.map(p => p ? { shape: p.shape, golden: !!p.golden } : null)
+    }));
   }
 
   function clearSave(){
-    try{ localStorage.removeItem(SAVE_KEY); } catch(e){}
+    storageRemove(SAVE_KEY);
   }
 
   function loadSave(){
+    const raw = storageGet(SAVE_KEY);
+    if(!raw) return null;
     try{
-      const raw = localStorage.getItem(SAVE_KEY);
-      if(!raw) return null;
       const data = JSON.parse(raw);
       if(!data || !Array.isArray(data.board) || data.board.length !== GRID || !Array.isArray(data.tray)) return null;
       return data;
