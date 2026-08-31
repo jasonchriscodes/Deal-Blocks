@@ -125,6 +125,7 @@
   const finalBestEl = document.getElementById("finalBest");
   const boardWrap = document.querySelector(".board-wrap");
   const muteBtn = document.getElementById("muteBtn");
+  const themeBtn = document.getElementById("themeBtn");
 
   bestValEl.textContent = best;
 
@@ -140,6 +141,38 @@
     renderMuteBtn();
   });
   renderMuteBtn();
+
+  // ---------------- THEME (auto by system, overridable) ----------------
+  const THEME_KEY = "dealblocks_theme_v1";
+  const systemLight = window.matchMedia("(prefers-color-scheme: light)");
+
+  function effectiveTheme(){
+    const stored = localStorage.getItem(THEME_KEY);
+    if(stored === "light" || stored === "dark") return stored;
+    return systemLight.matches ? "light" : "dark";
+  }
+  function renderThemeBtn(){
+    const light = effectiveTheme() === "light";
+    themeBtn.textContent = light ? "☀️" : "🌙";
+    themeBtn.title = light ? "Switch to dark theme" : "Switch to light theme";
+  }
+  function applyStoredTheme(){
+    const stored = localStorage.getItem(THEME_KEY);
+    if(stored === "light" || stored === "dark"){
+      document.documentElement.dataset.theme = stored;
+    } else {
+      delete document.documentElement.dataset.theme;
+    }
+    renderThemeBtn();
+  }
+  themeBtn.addEventListener("click", () => {
+    localStorage.setItem(THEME_KEY, effectiveTheme() === "light" ? "dark" : "light");
+    applyStoredTheme();
+  });
+  systemLight.addEventListener("change", () => {
+    if(!localStorage.getItem(THEME_KEY)) renderThemeBtn();
+  });
+  applyStoredTheme();
 
   // ---------------- INIT BOARD DOM ----------------
   function buildBoardDOM(){

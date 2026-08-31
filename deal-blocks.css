@@ -12,6 +12,63 @@
   --grid-cell:#2E2247;
   --grid-cell-line:#3B2C5A;
   --danger:#FF5A7A;
+  --ink:#150F1F;
+  --border-soft:rgba(255,255,255,0.06);
+  --scrim:rgba(11,7,18,0.88);
+  --shadow:0 8px 24px rgba(0,0,0,0.35);
+}
+
+/* Light theme: follows the OS/browser preference unless explicitly forced dark */
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg-0:#F6F2FB;
+    --bg-1:#ECE3F7;
+    --bg-2:#FFFFFF;
+    --card:#FFFFFF;
+    --gold:#B4740A;
+    --mint:#12968C;
+    --lav:#241A38;
+    --lav-dim:#6F6483;
+    --grid-cell:#F5EFFC;
+    --grid-cell-line:#DCCFEE;
+    --danger:#E23A5C;
+    --border-soft:rgba(36,20,56,0.08);
+    --scrim:rgba(50,36,74,0.4);
+    --shadow:0 8px 24px rgba(60,40,90,0.14);
+  }
+}
+
+/* Manual toggle wins over the system preference in either direction */
+:root[data-theme="light"]{
+  --bg-0:#F6F2FB;
+  --bg-1:#ECE3F7;
+  --bg-2:#FFFFFF;
+  --card:#FFFFFF;
+  --gold:#B4740A;
+  --mint:#12968C;
+  --lav:#241A38;
+  --lav-dim:#6F6483;
+  --grid-cell:#F5EFFC;
+  --grid-cell-line:#DCCFEE;
+  --danger:#E23A5C;
+  --border-soft:rgba(36,20,56,0.08);
+  --scrim:rgba(50,36,74,0.4);
+  --shadow:0 8px 24px rgba(60,40,90,0.14);
+}
+:root[data-theme="dark"]{
+  --bg-0:#150F1F;
+  --bg-1:#1E1530;
+  --bg-2:#271B3D;
+  --card:#241A38;
+  --gold:#FFC145;
+  --mint:#4ECDC4;
+  --lav:#EDE6F5;
+  --lav-dim:#B7ACC9;
+  --grid-cell:#2E2247;
+  --grid-cell-line:#3B2C5A;
+  --danger:#FF5A7A;
+  --border-soft:rgba(255,255,255,0.06);
+  --scrim:rgba(11,7,18,0.88);
   --shadow:0 8px 24px rgba(0,0,0,0.35);
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -28,6 +85,7 @@ html,body{
   touch-action:none;
   -webkit-user-select:none;
   user-select:none;
+  transition:background-color .25s ease, color .25s ease;
 }
 #app{
   max-width:480px;
@@ -67,7 +125,7 @@ html,body{
 }
 .icon-btn{
   width:36px; height:36px; border-radius:10px;
-  background:var(--card); border:1px solid rgba(255,255,255,0.06);
+  background:var(--card); border:1px solid var(--border-soft);
   display:flex; align-items:center; justify-content:center;
   color:var(--lav-dim); cursor:pointer;
   font-size:15px;
@@ -84,7 +142,7 @@ html,body{
 .stat-card{
   flex:1;
   background:var(--card);
-  border:1px solid rgba(255,255,255,0.05);
+  border:1px solid var(--border-soft);
   border-radius:14px;
   padding:9px 12px;
   position:relative;
@@ -109,7 +167,7 @@ html,body{
 .streak-row{ display:flex; align-items:baseline; gap:5px; }
 .streak-row .value{ color:var(--mint); }
 .combo-tag{
-  font-size:10px; font-weight:700; color:var(--bg-0);
+  font-size:10px; font-weight:700; color:var(--ink);
   background:var(--mint);
   padding:1px 6px; border-radius:20px;
   opacity:0; transform:translateY(2px);
@@ -211,7 +269,7 @@ html,body{
   justify-content:center;
   padding:6px;
   position:relative;
-  border:1px solid rgba(255,255,255,0.05);
+  border:1px solid var(--border-soft);
   transition:opacity .15s ease, transform .15s ease;
   touch-action:none;
 }
@@ -302,7 +360,7 @@ html,body{
 /* ---------- OVERLAY: GAME OVER ---------- */
 .overlay{
   position:absolute; inset:0;
-  background:rgba(11,7,18,0.88);
+  background:var(--scrim);
   -webkit-backdrop-filter:blur(6px);
   backdrop-filter:blur(6px);
   display:flex; align-items:center; justify-content:center;
@@ -320,7 +378,7 @@ html,body{
   max-width:340px;
   text-align:center;
   box-shadow:var(--shadow);
-  border:1px solid rgba(255,255,255,0.06);
+  border:1px solid var(--border-soft);
   transform:translateY(10px) scale(0.97);
   transition:transform .25s ease;
 }
